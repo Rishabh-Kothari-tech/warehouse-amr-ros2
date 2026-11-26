@@ -1,0 +1,7 @@
+image: warehouse_map_v2_partial.pgm
+mode: trinary
+resolution: 0.050
+origin: [-6.635, -6.182, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
