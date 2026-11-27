@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit-tests:
+    name: Unit tests (scheduler, agents, evaluation harness)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'   # Ubuntu 24.04 / ROS 2 Jazzy system Python
+      - name: Install test dependencies
+        run: pip install pytest pyyaml
+      - name: Run tests
+        env:
+          PYTHONPATH: src/amr_tasks:src/amr_agent:src/amr_agent/test
+        run: python -m pytest -q src/amr_tasks/test src/amr_agent/test
+      - name: Offline agent benchmark (rule-based baseline)
+        env:
+          PYTHONPATH: src/amr_tasks:src/amr_agent
+        run: python -c "from amr_agent.evaluate import main; main(['--offline'])"
+
+  ros-build:
+    name: colcon build on ROS 2 Jazzy
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build all workspace packages
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --event-handlers console_direct- 2>&1 | tail -20
+      - name: Check interfaces, entry points, launch files and configs
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          ros2 interface show amr_interfaces/action/ExecuteMission
+          ros2 pkg executables amr_tasks
+          ros2 pkg executables amr_agent
+          for f in src/*/launch/*.launch.py; do python3 -m py_compile "$f" && echo "ok  $f"; done
+          for f in src/*/config/*.yaml src/*/resource/*.yaml maps/*.yaml; do
+            python3 -c "import sys, yaml; yaml.safe_load(open(sys.argv[1]))" "$f" && echo "ok  $f"
+          done

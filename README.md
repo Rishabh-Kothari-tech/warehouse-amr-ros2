@@ -1,5 +1,7 @@
 # Autonomous Warehouse AMR — ROS 2 Jazzy + Webots + LLM agent
 
+[![CI](https://github.com/Rishabh-Kothari-tech/warehouse-amr-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/Rishabh-Kothari-tech/warehouse-amr-ros2/actions/workflows/ci.yml)
+
 A differential-drive warehouse robot simulated in Webots, with SLAM mapping, AMCL localization, Nav2 autonomous
 navigation, and an **agentic layer** that turns plain-English requests ("bring me bolts and a BMS board") into
 validated, distance-optimised missions, running fully on-device with a free 3B open model (or with Claude). Built as part of the IIT Gandhinagar PG Diploma (AI-ML & Agentic AI Engineering) Forward Deployed
@@ -32,11 +34,10 @@ See [`docs/agentic_layer.md`](docs/agentic_layer.md) for the architecture, safet
 
 ## Build
 ```bash
-source /opt/ros/jazzy/setup.bash
-cd ~/warehouse_amr_ws
-colcon build
+bash scripts/setup.sh            # installs ROS deps and builds; add --agent for Ollama + the local model
 source install/setup.bash
 ```
+CI builds every package on ROS 2 Jazzy and runs the unit tests and the offline agent benchmark on each push.
 
 ## Run
 ```bash
