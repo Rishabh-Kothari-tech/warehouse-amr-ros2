@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>amr_dashboard</name>
+  <version>0.1.0</version>
+  <description>Live web operations dashboard for the warehouse AMR (map, robot, missions, agent activity, KPIs)</description>
+  <maintainer email="251034528+Rishabh-Kothari-tech@users.noreply.github.com">Rishabh Kothari</maintainer>
+  <license>Apache-2.0</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>amr_interfaces</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

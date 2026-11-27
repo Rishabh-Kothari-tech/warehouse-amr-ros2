@@ -14,13 +14,22 @@ import re
 import time
 
 from amr_agent.ollama_agent import DEFAULT_OLLAMA_MODEL, KEEP_ALIVE, OLLAMA_URL, warm_up
-from amr_agent.rule_agent import LOW_BATTERY, RuleAgent
+from amr_agent.rule_agent import LOW_BATTERY, RuleAgent, match_station
 
 INTENTS = ['deliver', 'goto', 'charge', 'status', 'inventory', 'cancel', 'unknown']
 
 
 def _words(text):
     return [w for w in re.split(r'[^a-z0-9]+', text.lower()) if len(w) >= 3 and not w.isdigit()]
+
+
+def stated_destination(text):
+    """Station named after a destination preposition ("to shipping", "at packing", "over to rack B2"), else None.
+    High precision on purpose: only an explicitly stated destination may override the model."""
+    m = None
+    for m in re.finditer(r'\b(?:to|at|into|for)\s+(?:the\s+)?([a-z0-9 _-]{2,30})', text.lower()):
+        pass  # keep the LAST one: "bring bolts from rack A1 to packing" -> packing
+    return match_station(m.group(1)) if m else None
 
 
 def grounded(sku, text):
@@ -139,6 +148,15 @@ class LocalIntentAgent(RuleAgent):
                 if intent['intent'] == 'deliver' and not intent['items']:
                     return (f'I am not sure what you want: I could not match any product in "{text}". The robot did '
                             'not move. Could you name the item, or say e.g. "charge" or "go to shelf 3"?')
+        # Verifier, destination: an explicitly stated destination wins over the model's guess.
+        stated = stated_destination(text)
+        if stated and intent['intent'] in ('deliver', 'goto') and stated != intent['destination'] \
+                and stated in {s['name'] for s in stations}:
+            self.on_event({'type': 'verifier', 'rejected': [f'destination {intent["destination"] or "(none)"} '
+                                                            f'-> {stated} (stated in request)']})
+            self.trace.append({'tool': '(verifier destination)', 'input': text,
+                               'output': {'from': intent['destination'], 'to': stated}})
+            intent['destination'] = stated
         kind, items, dest = intent['intent'], intent['items'], intent['destination']
         stock = {sku: s['name'] for s in stations for sku in s.get('items', [])}
 

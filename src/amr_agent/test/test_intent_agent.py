@@ -80,3 +80,19 @@ def test_verifier_refuses_to_move_if_model_insists():
     bad = {'intent': 'deliver', 'items': ['motor_controller'], 'unknown_items': [], 'destination': 'charging_dock'}
     agent = LocalIntentAgent(ToolExecutor(be), transport=lambda p: {'message': {'content': json.dumps(bad)}})
     assert 'did not move' in agent.ask('top it up please')['reply'] and be.missions == []
+
+
+def test_stated_destination_extraction():
+    from amr_agent.intent_agent import stated_destination
+    assert stated_destination('brake pads and battery cells to shipping') == 'shipping_dock'
+    assert stated_destination('I need bolts and bearings at packing') == 'packing_station'
+    assert stated_destination('bring bolts from rack A1 to packing') == 'packing_station'
+    assert stated_destination('go to rack B2') == 'rack_B2'
+    assert stated_destination('head home') is None and stated_destination('bring me bolts') is None
+
+
+def test_stated_destination_overrides_model():
+    agent, be, _ = agent_with({'intent': 'deliver', 'items': ['bms_board', 'hall_sensors'], 'unknown_items': [],
+                               'destination': 'packing_station'})
+    agent.ask('bms board and hall sensors to the charging dock')
+    assert all(o['dropoff'] == 'charging_dock' for o in be.plans[0])

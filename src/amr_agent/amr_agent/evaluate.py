@@ -24,6 +24,7 @@ STATIONS = [
     {'name': 'shelf_3', 'type': 'shelf', 'x': -2.0, 'y': 0.9, 'items': ['cable_ties', 'wiring_harness', 'connectors']},
     {'name': 'shelf_4', 'type': 'shelf', 'x': -2.0, 'y': -0.9, 'items': ['motor_controller', 'hall_sensors', 'bms_board']},
     {'name': 'packing_station', 'type': 'packing', 'x': 3.4, 'y': 0.0, 'items': []},
+    {'name': 'shipping_dock', 'type': 'shipping', 'x': 3.4, 'y': -3.0, 'items': []},
     {'name': 'charging_dock', 'type': 'charger', 'x': -3.4, 'y': 0.0, 'items': []},
 ]
 POS = {s['name']: (s['x'], s['y']) for s in STATIONS}
@@ -43,6 +44,8 @@ CASES = [
     ('the robot looks low, top it up', 30, {'__charge__': 'charging_dock'}, False),
     # regression: live test 27 Nov 2026, the 3B model turned this into a delivery of two unrequested products
     ('now send the robot over to the charger and top it up', 80, {'__charge__': 'charging_dock'}, False),
+    # regression: live dashboard test 27 Nov 2026, the model sent this to packing_station
+    ('bms board and hall sensors to shipping', 90, {'bms_board': 'shipping_dock', 'hall_sensors': 'shipping_dock'}, False),
 ]
 
 
