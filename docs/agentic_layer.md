@@ -35,6 +35,7 @@ flowchart TB
 | `amr_interfaces` | `Station`, `MissionStep`, `Order` msgs; `ListStations`, `GetRobotStatus`, `PlanOrders` srvs; `ExecuteMission` action |
 | `amr_tasks` | `warehouse_manager` node: station + inventory registry (`config/stations.yaml`), mission executor on Nav2, simulated battery and cargo, order scheduler, RViz station markers |
 | `amr_agent` | Agents (Claude tool loop, local hybrid intent agent, local tool loop, rule-based), `chat` CLI, `agent_node` (ROS topics), `evaluate` benchmark |
+| `amr_dashboard` | Live web operations dashboard on http://localhost:8765 |
 
 ## Agent backends
 
@@ -88,35 +89,54 @@ no robot time) and scores which items moved where, whether the robot charged fir
 and whether it correctly did nothing. Every failure is also classified as **unsafe** if a mission ran that the
 person did not ask for, or safe if the robot did not move.
 
-Two request sets:
-- **dev** (11): used while writing the prompts. Includes a regression case from a live failure (below).
-- **held-out** (10): written after the prompts were final and never used for tuning. New phrasings, other SKUs,
-  an adversarial "laptop charger" (not stocked; "charger" is a trap) and a low-battery delivery.
+Three request sets:
+- **dev** (12): used while writing the prompts; includes regression cases from live failures.
+- **held-out v1** (10): written after the first prompts were final. It has since been *seen failing* (below), so it
+  is no longer a blind test.
+- **held-out v2** (10): written and committed (`6db88a1`) **before** the slot-grounding fix and never used for
+  tuning. New phrasings and traps: "is the robot charging right now?" (a question, must not charge), "fetch a
+  spanner" (not stocked), "pull two circlips for the packing bench", a low-battery delivery.
 
-Results on a laptop (GTX 1650 4 GB, WSL2), 27 Nov 2026:
+Final results, laptop GTX 1650 4 GB under WSL2, 27 Nov 2026 (raw output in `docs/eval/`):
 
-| Agent | dev | **held-out** | unsafe actions |
-|---|---|---|---|
-| Keyword rules (baseline) | 5 / 11 | 5 / 10 | 0 |
-| Qwen 2.5 3B, free-form tool loop | 3 / 11 | 2 / 10 | 2 |
-| **Qwen 2.5 3B, hybrid intent agent + verifier** | **10 / 11** | **9 / 10** | **0** |
-| Claude (`claude-sonnet-5-5`), tool loop | not run: API account had no credits | | |
+| Agent | dev (12) | held-out v1 (10) | **held-out v2 (10)** | unsafe actions |
+|---|---|---|---|---|
+| Keyword rules (baseline) | 5 | 5 | 3 | 2 |
+| Qwen 2.5 3B, free-form tool-use loop | 3 | 2 | 5 | 4 |
+| **Qwen 2.5 3B, hybrid intent agent + verifiers** | **11** | **9** | **10** | **0** |
+| Claude (`claude-sonnet-5-5`), tool loop | not run: API account had no credits | | | |
 
 What the numbers show:
 - A 3B model cannot run a free-form tool loop reliably: it describes plans without calling `execute_mission`,
   claims deliveries that never happened, and sometimes executes the wrong mission.
-- Narrowing the model's job to constrained intent parsing makes the same model beat the keyword baseline by a wide
-  margin, with one model call per request instead of 4-8.
+- Narrowing the model's job to constrained intent parsing, and verifying every slot it fills against the request
+  text, makes the same model reliable enough to command a robot, with one model call per request.
 - Remaining misses ("head home", "now send the robot over to the charger and top it up") end in a safe refusal.
 
-### A live failure and the verifier
+### Verifiers: the model proposes, code checks
 
-In the first live run, *"now send the robot over to the charger and top it up"* was parsed by the 3B model as
-*deliver motor_controller and bms_board to charging_dock*, and the robot executed it. Every safety check passed,
-because the mission was feasible; nothing checked that it was what the person asked for. The fix is the grounding
-verifier described above (the model proposes, code verifies). The request is now in the dev set as a regression
-case: it is no longer executed wrongly, though the 3B model still does not understand it, so it ends in a safe
-refusal.
+The model's output is constrained by a JSON schema built from the live inventory (it cannot emit an unknown SKU or
+station), but a *valid* answer can still be the *wrong* answer. Every slot is therefore grounded in the request:
+
+| Slot | Check | On failure |
+|---|---|---|
+| products | each SKU must share a word stem with the request ("harnesses" ~ `wiring_harness`) | one retry with the error explained; then refuse to move and ask |
+| destination | a station named after "to / at / into / for" overrides the model; a destination the request never mentions is dropped | deliveries default to packing; `goto` asks where |
+| charge | needs charging words ("charge", "recharge", "top it up") and must not be a question | treated as status / unknown |
+
+### Live failures that shaped the design
+
+Each one was found in a live run, fixed in general (not for that sentence) and added as a regression test.
+
+1. **Hallucinated delivery.** *"now send the robot over to the charger and top it up"* was parsed as *deliver
+   motor_controller and bms_board to charging_dock* and the robot executed it. Every safety check passed, because
+   the mission was feasible. Fix: product grounding verifier.
+2. **Wrong destination.** From the dashboard, *"brake pads and battery cells to shipping"* was sent to
+   packing_station. Fix: stated-destination override.
+3. **Regression from a harmless change.** Adding a shipping dock to the station list made the model invent
+   destinations ("bring me some bolts" → drop at the shelf it came from) and turn *"bring me a laptop charger"*
+   into a charge command: 4 unsafe actions in the benchmark. Fix: unstated destinations are dropped; charge needs
+   charging words. This is why the benchmark is re-run after every agent change, and why held-out v2 exists.
 
 ### Live missions in simulation
 
@@ -147,6 +167,32 @@ time-to-collision `approach` mode (footprint projected along the current velocit
 aisles, normal docking at shelves. Re-tested with an unmapped box in the path at the new speed: 0 aborts, closest
 approach ≈0.38 m from the front bumper.
 
+### Racked warehouse and the 2D-LiDAR blind spot
+
+The final world (`scripts/generate_warehouse_world.py`) is a 12 × 10 m building with walls, three rows of racking
+split into six bays (1.8 m aisles, 1.6 m cross-aisle), packing and shipping tables, a charging dock and two pillars;
+`stations.yaml` is generated from the same layout so the two cannot drift. The first map showed the racks as
+isolated dots: Webots' LiDAR ray-casts against visible geometry, and at the scanner height (0.27 m) an empty rack
+is only thin uprights, so Nav2 would have planned through them. Real racked warehouses have the same blind spot;
+the fix was floor-level pallet loads (a solid face from 0 to 0.45 m), as in a real rack. Re-mapped:
+`maps/warehouse_map_v4`, 3 cm drift over a 45 m lap. All station types verified with live missions:
+
+| Request (hybrid agent) | Route | Result |
+|---|---|---|
+| "I need bolts and bearings at packing" | A1 → A2 → packing | 11.1 m, 57 s |
+| "the line needs brake pads and battery cells, send them to shipping" | C1 → C2 → shipping | 20.9 m, 77 s |
+| "bring a wiring harness to packing" | B1 → packing | 16.4 m, 56 s |
+| "go charge" | charging dock | 11.6 m, 45 s |
+
+## Operations dashboard
+
+`ros2 launch amr_dashboard ops.launch.py` starts the agent's ROS front-end and a dashboard on
+http://localhost:8765 (127.0.0.1 only; 8080 is often taken on Windows). Standard-library HTTP server, a single page
+polling `/api/state` twice a second: live map (SLAM map, stations, robot pose, Nav2 global plan, trail), robot card,
+command box (publishes to `/agent/command`), activity feed (intent, verifier corrections, optimiser result, mission
+steps, reply) and KPIs computed from the decision log (missions, success rate, distance, mission time, agent think
+time, route saving). The README GIF is rendered from a real mission recorded with `scripts/record_demo.py`.
+
 ## Running it
 
 ```bash
@@ -162,7 +208,8 @@ pip install --user --break-system-packages anthropic
 ros2 launch amr_simulation warehouse_simulation.launch.py   # terminal A
 ros2 launch amr_simulation amr_navigation.launch.py         # terminal B
 ros2 launch amr_tasks warehouse_tasks.launch.py             # terminal C
-ros2 run amr_agent chat                                     # terminal D: talk to the robot (--backend local|claude|rule)
+ros2 launch amr_dashboard ops.launch.py                     # terminal D: agent + dashboard on :8765
+ros2 run amr_agent chat                                     # or talk in a terminal (--backend local|claude|rule)
 
 # or over ROS topics
 ros2 launch amr_agent agent.launch.py
@@ -175,4 +222,4 @@ reply is appended to `~/.ros/amr_agent/decisions.jsonl`.
 
 ## Simulation assumptions
 Pick and drop are 3 s dwells with a cargo manifest (no manipulator). The battery drains 1.5 %/m driven and charges
-at 8 %/s at the dock. Station poses live in `amr_tasks/config/stations.yaml` in the frame of `maps/warehouse_map_v3`.
+at 8 %/s at the dock. Station poses live in `amr_tasks/config/stations.yaml` (generated) in the frame of `maps/warehouse_map_v4`.
