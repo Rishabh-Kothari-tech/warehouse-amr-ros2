@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>amr_agent</name>
+  <version>0.1.0</version>
+  <description>LLM (Claude) tool-calling agent that turns natural-language warehouse requests into AMR missions</description>
+  <maintainer email="251034528+Rishabh-Kothari-tech@users.noreply.github.com">Rishabh Kothari</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>amr_interfaces</exec_depend>
+  <exec_depend>amr_tasks</exec_depend>
+  <!-- anthropic Python SDK: pip install anthropic (optional; rule-based fallback without it) -->
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

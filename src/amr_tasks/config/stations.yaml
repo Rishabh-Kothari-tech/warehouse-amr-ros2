@@ -1,0 +1,12 @@
+# Warehouse stations in the `map` frame of maps/warehouse_map_v3 (origin = robot spawn pose).
+# Shelf poses are the pick faces: the robot stops ~0.7 m in front of the shelf, facing it.
+# Shelves are 2.0 x 0.8 m boxes centred at (+-2, +-2).
+capacity: 2            # items the robot can carry at once
+stations:
+  - {name: home,            type: home,    x:  0.0, y:  0.0, yaw_deg:    0}
+  - {name: shelf_1,         type: shelf,   x:  2.0, y:  0.9, yaw_deg:   90, items: [bolts_m8, nuts_m8, washers_m8]}
+  - {name: shelf_2,         type: shelf,   x:  2.0, y: -0.9, yaw_deg:  -90, items: [bearings_6204, oil_seals, circlips]}
+  - {name: shelf_3,         type: shelf,   x: -2.0, y:  0.9, yaw_deg:   90, items: [cable_ties, wiring_harness, connectors]}
+  - {name: shelf_4,         type: shelf,   x: -2.0, y: -0.9, yaw_deg:  -90, items: [motor_controller, hall_sensors, bms_board]}
+  - {name: packing_station, type: packing, x:  3.4, y:  0.0, yaw_deg:    0}
+  - {name: charging_dock,   type: charger, x: -3.4, y:  0.0, yaw_deg:  180}

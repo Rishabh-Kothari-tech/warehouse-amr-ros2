@@ -1,0 +1,12 @@
+---
+float64 x
+float64 y
+float64 yaw
+float32 battery_pct
+string state               # idle | navigating | picking | dropping | charging | error
+string nearest_station
+string current_mission
+string[] carrying
+uint32 capacity
+float64 odometer_m
+string last_message

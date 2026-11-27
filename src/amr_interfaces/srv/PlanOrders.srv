@@ -1,0 +1,11 @@
+# Sequence pickups and drop-offs for several orders, minimising travel distance
+# (Nav2 planner path lengths), respecting pickup-before-dropoff and carrying capacity.
+amr_interfaces/Order[] orders
+string start_station      # empty = robot's current position
+string end_station        # empty = finish at the last drop-off
+---
+bool success
+string message
+amr_interfaces/MissionStep[] steps
+float64 planned_distance_m
+float64 naive_distance_m  # orders done one at a time in the given order, for comparison

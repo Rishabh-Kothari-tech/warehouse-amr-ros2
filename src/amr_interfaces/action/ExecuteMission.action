@@ -1,0 +1,16 @@
+string mission_id
+amr_interfaces/MissionStep[] steps
+---
+bool success
+string message
+int32 steps_completed
+float64 distance_m
+float64 duration_s
+float32 battery_pct
+---
+int32 step_index
+int32 total_steps
+string station
+string action
+string state
+float32 battery_pct
