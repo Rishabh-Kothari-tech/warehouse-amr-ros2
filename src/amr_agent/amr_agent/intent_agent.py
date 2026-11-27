@@ -32,6 +32,11 @@ def stated_destination(text):
     return match_station(m.group(1)) if m else None
 
 
+CHARGE_WORDS = re.compile(r'\b(charge|charging|recharge|recharging)\b|\btop(ped)?[\s-]*(it|her|him|the battery)?[\s-]*up\b')
+# "is the robot charging?" is a question about state, not a command
+QUESTION = re.compile(r'^\s*(is|are|does|do|how|what|where|when|which|has|have)\b|\?\s*$')
+
+
 def grounded(sku, text):
     """True if the request actually mentions the product: some word of the SKU (ignoring sizes/part numbers)
     shares a stem with a word of the request ("harnesses" ~ wiring_harness, "a bearing" ~ bearings_6204)."""
@@ -148,8 +153,18 @@ class LocalIntentAgent(RuleAgent):
                 if intent['intent'] == 'deliver' and not intent['items']:
                     return (f'I am not sure what you want: I could not match any product in "{text}". The robot did '
                             'not move. Could you name the item, or say e.g. "charge" or "go to shelf 3"?')
-        # Verifier, destination: an explicitly stated destination wins over the model's guess.
+        # Verifier, intent: a charge command must contain charging words and not be a question.
+        if intent['intent'] == 'charge' and (not CHARGE_WORDS.search(text.lower()) or QUESTION.search(text.lower())):
+            self.on_event({'type': 'verifier', 'rejected': ['charge intent not stated in request']})
+            intent['intent'] = 'status' if QUESTION.search(text.lower()) else 'unknown'
+        # Verifier, destination: an explicitly stated destination wins over the model's guess,
+        # and a destination the request never mentions is dropped (deliveries then default to packing).
         stated = stated_destination(text)
+        if intent['destination'] and not stated and match_station(text.lower()) != intent['destination']:
+            self.on_event({'type': 'verifier', 'rejected': [f'destination {intent["destination"]} not stated in request']})
+            self.trace.append({'tool': '(verifier destination)', 'input': text,
+                               'output': {'from': intent['destination'], 'to': ''}})
+            intent['destination'] = ''
         if stated and intent['intent'] in ('deliver', 'goto') and stated != intent['destination'] \
                 and stated in {s['name'] for s in stations}:
             self.on_event({'type': 'verifier', 'rejected': [f'destination {intent["destination"] or "(none)"} '

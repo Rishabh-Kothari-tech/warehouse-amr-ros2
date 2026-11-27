@@ -96,3 +96,19 @@ def test_stated_destination_overrides_model():
                                'destination': 'packing_station'})
     agent.ask('bms board and hall sensors to the charging dock')
     assert all(o['dropoff'] == 'charging_dock' for o in be.plans[0])
+
+
+def test_unstated_destination_is_dropped_and_defaults_to_packing():
+    agent, be, _ = agent_with({'intent': 'deliver', 'items': ['bolts_m8'], 'unknown_items': [], 'destination': 'shelf_1'})
+    agent.ask('bring me some bolts')
+    assert be.missions[0][-1] == {'station': 'packing_station', 'action': 'drop', 'item': 'bolts_m8'}
+
+
+def test_charge_intent_needs_charge_words_and_not_a_question():
+    for text in ('bring me a laptop charger', 'is the robot charging right now?'):
+        agent, be, _ = agent_with({'intent': 'charge', 'items': [], 'unknown_items': [], 'destination': 'charging_dock'})
+        agent.ask(text)
+        assert be.missions == [], text
+    agent, be, _ = agent_with({'intent': 'charge', 'items': [], 'unknown_items': [], 'destination': ''})
+    agent.ask('the robot looks low, top it up')
+    assert be.missions[0][0]['action'] == 'charge'
