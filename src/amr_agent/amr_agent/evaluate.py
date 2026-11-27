@@ -63,7 +63,23 @@ HELDOUT = [
     ('head home', 90, {'__goto__': 'home'}, False),
     ('deliver hall sensors to packing', 15, {'hall_sensors': 'packing_station'}, True),
 ]
-SETS = {'dev': CASES, 'heldout': HELDOUT}
+# Held-out v2: written 27 Nov 2026 BEFORE the slot-grounding fix, after held-out v1 failures had been seen
+# (v1 is no longer blind). Never used for tuning.
+HELDOUT_V2 = [
+    ('pull two circlips for the packing bench', 90, {'circlips': 'packing_station'}, False),
+    ('I need hall sensors', 90, {'hall_sensors': 'packing_station'}, False),
+    ('move the oil seals over to shipping', 90, {'oil_seals': 'shipping_dock'}, False),
+    ('can the robot go to shelf four', 90, {'__goto__': 'shelf_4'}, False),
+    ('is the robot charging right now?', 90, None, False),
+    ('cable ties and connectors to the shipping dock', 90, {'cable_ties': 'shipping_dock',
+                                                            'connectors': 'shipping_dock'}, False),
+    ('fetch a spanner', 90, None, False),
+    ('go back to the home position', 90, {'__goto__': 'home'}, False),
+    ('washers please, battery is fine', 90, {'washers_m8': 'packing_station'}, False),
+    ('deliver nuts and bolts to packing, battery is low', 20, {'nuts_m8': 'packing_station',
+                                                              'bolts_m8': 'packing_station'}, True),
+]
+SETS = {'dev': CASES, 'heldout': HELDOUT, 'heldout2': HELDOUT_V2}
 
 class SimBackend:
     """In-memory warehouse: instant missions, battery drain 1.5%/m on straight-line distance."""
@@ -169,14 +185,15 @@ def main(argv=None):
     ap.add_argument('--offline', action='store_true', help='rule-based agent only')
     ap.add_argument('--backends', default='local,ollama,claude', help='LLM backends to compare with the baseline')
     ap.add_argument('--model', help='model id (applies to every backend listed)')
-    ap.add_argument('--set', choices=['dev', 'heldout', 'all'], default='all',
-                    help='dev = cases used while writing prompts; heldout = never used for tuning')
+    ap.add_argument('--set', choices=['dev', 'heldout', 'heldout2', 'all'], default='all',
+                    help='dev = used while writing prompts; heldout = v1 (seen failing, no longer blind); '
+                         'heldout2 = fresh, never used for tuning')
     ap.add_argument('--verbose', action='store_true')
     ap.add_argument('--json', help='write results to this file')
     args, _ = ap.parse_known_args(argv)
 
     results = []
-    for set_name in (['dev', 'heldout'] if args.set == 'all' else [args.set]):
+    for set_name in (['dev', 'heldout', 'heldout2'] if args.set == 'all' else [args.set]):
         cases = SETS[set_name]
         print(f'===== {set_name} set ({len(cases)} requests) =====')
         r = run(lambda be: build_agent(be, offline=True)[0], 'rule-based agent', args.verbose, cases)
