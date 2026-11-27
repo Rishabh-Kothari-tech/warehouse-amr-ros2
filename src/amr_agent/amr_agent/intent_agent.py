@@ -57,7 +57,8 @@ Rules:
   ("a bearing" -> bearings_6204, "BMS" -> bms_board, "harnesses" -> wiring_harness).
 - unknown_items: anything requested that is NOT in the catalogue (e.g. "pizza"). Never force it onto a SKU.
 - destination: for deliver, where the items should go ("" if not said); for goto, the station to drive to;
-  otherwise "". "shelf three" means shelf_3, "packing" means packing_station, "charger"/"dock" means charging_dock.
+  otherwise "". "shelf three" means shelf_3, "rack B2"/"B2" means rack_B2, "packing" means packing_station,
+  "shipping"/"outbound" means shipping_dock, "charger" means charging_dock.
 - If the request is a delivery and also says to park/charge afterwards, still use intent deliver."""
 
 

@@ -44,7 +44,8 @@ from amr_interfaces.srv import GetRobotStatus, ListStations, PlanOrders
 from amr_tasks.scheduler import Order, naive_plan, optimal_plan
 
 ACTIONS = ('goto', 'pick', 'drop', 'charge')
-STATION_COLORS = {'shelf': (0.85, 0.45, 0.1), 'packing': (0.1, 0.7, 0.3), 'charger': (0.95, 0.85, 0.1),
+STATION_COLORS = {'shelf': (0.85, 0.45, 0.1), 'packing': (0.1, 0.7, 0.3), 'shipping': (0.2, 0.45, 0.85),
+                  'charger': (0.95, 0.85, 0.1),
                   'home': (0.3, 0.5, 0.95)}
 
 

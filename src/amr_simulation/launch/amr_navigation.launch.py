@@ -16,7 +16,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_dir = get_package_share_directory('amr_simulation')
     default_params = os.path.join(pkg_dir, 'config', 'nav2_params.yaml')
-    default_map = os.path.expanduser('~/warehouse_amr_ws/maps/warehouse_map_v3.yaml')
+    default_map = os.path.expanduser('~/warehouse_amr_ws/maps/warehouse_map_v4.yaml')
     rviz_config = os.path.join(get_package_share_directory('nav2_bringup'), 'rviz', 'nav2_default_view.rviz')
 
     params = LaunchConfiguration('params_file')

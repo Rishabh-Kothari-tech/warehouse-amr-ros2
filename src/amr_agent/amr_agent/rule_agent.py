@@ -15,6 +15,10 @@ from amr_agent.tools import ToolExecutor
 STATION_ALIASES = [
     (r'\bshelf[\s_-]*1\b|\bshelf one\b', 'shelf_1'), (r'\bshelf[\s_-]*2\b|\bshelf two\b', 'shelf_2'),
     (r'\bshelf[\s_-]*3\b|\bshelf three\b', 'shelf_3'), (r'\bshelf[\s_-]*4\b|\bshelf four\b', 'shelf_4'),
+    (r'\brack[\s_-]*a[\s_-]*1\b|\ba1\b', 'rack_A1'), (r'\brack[\s_-]*a[\s_-]*2\b|\ba2\b', 'rack_A2'),
+    (r'\brack[\s_-]*b[\s_-]*1\b|\bb1\b', 'rack_B1'), (r'\brack[\s_-]*b[\s_-]*2\b|\bb2\b', 'rack_B2'),
+    (r'\brack[\s_-]*c[\s_-]*1\b|\bc1\b', 'rack_C1'), (r'\brack[\s_-]*c[\s_-]*2\b|\bc2\b', 'rack_C2'),
+    (r'\bship(ping)?\b|\boutbound\b', 'shipping_dock'),
     (r'\bpack(ing)?\b', 'packing_station'), (r'\bcharg(e|er|ing)\b|\bdock\b', 'charging_dock'),
     (r'\bhome\b|\bstart\b', 'home'),
 ]

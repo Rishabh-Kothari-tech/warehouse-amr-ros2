@@ -30,7 +30,7 @@ amcl:
 map_server:
   ros__parameters:
     use_sim_time: true
-    yaml_filename: /home/rishabh/warehouse_amr_ws/maps/warehouse_map_v3.yaml
+    yaml_filename: /home/rishabh/warehouse_amr_ws/maps/warehouse_map_v4.yaml
 planner_server:
   ros__parameters:
     use_sim_time: true
