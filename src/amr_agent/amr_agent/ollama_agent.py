@@ -16,6 +16,24 @@ from amr_agent.tools import TOOLS, ToolExecutor, to_json
 
 OLLAMA_URL = os.environ.get('OLLAMA_HOST_URL', 'http://127.0.0.1:11434')
 DEFAULT_OLLAMA_MODEL = os.environ.get('AMR_OLLAMA_MODEL', 'qwen2.5:3b')
+# Ollama unloads an idle model after 5 min; reloading it under WSL took ~45 s. Keep it on the GPU.
+KEEP_ALIVE = os.environ.get('AMR_OLLAMA_KEEP_ALIVE', '60m')
+
+
+def warm_up(model: str = DEFAULT_OLLAMA_MODEL, url: str = OLLAMA_URL, background: bool = True):
+    """Load the model onto the GPU now (an empty chat request), so the first real request is fast."""
+    def _go():
+        try:
+            req = urllib.request.Request(f'{url}/api/chat', headers={'Content-Type': 'application/json'},
+                                         data=json.dumps({'model': model, 'messages': [], 'keep_alive': KEEP_ALIVE}).encode())
+            urllib.request.urlopen(req, timeout=300).read()
+        except Exception:
+            pass
+    if background:
+        import threading
+        threading.Thread(target=_go, daemon=True).start()
+    else:
+        _go()
 
 # Small models follow terse, explicit procedure better than prose.
 SMALL_MODEL_ADDENDUM = """
@@ -74,7 +92,7 @@ class OllamaAgent:
         self.history.append({'role': 'user', 'content': text})
         self._trim()
         for _ in range(self.max_steps):
-            payload = {'model': self.model, 'stream': False, 'tools': self.tools,
+            payload = {'model': self.model, 'stream': False, 'tools': self.tools, 'keep_alive': KEEP_ALIVE,
                        'options': {'temperature': 0, 'num_ctx': self.num_ctx},
                        'messages': [{'role': 'system', 'content': SYSTEM_PROMPT + SMALL_MODEL_ADDENDUM}] + self.history}
             msg = self.transport(payload).get('message', {})

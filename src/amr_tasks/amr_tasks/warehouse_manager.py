@@ -66,7 +66,7 @@ class WarehouseManager(Node):
         self.declare_parameter('battery_drain_pct_per_m', 1.5)
         self.declare_parameter('charge_rate_pct_per_s', 8.0)
         self.declare_parameter('critical_battery_pct', 10.0)
-        self.declare_parameter('dwell_s', 3.0)
+        self.declare_parameter('dwell_s', 1.5)
         self.declare_parameter('arrive_tolerance_m', 0.25)
         self.declare_parameter('nav_attempts', 2)
 

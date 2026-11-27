@@ -13,7 +13,7 @@ import json
 import re
 import time
 
-from amr_agent.ollama_agent import DEFAULT_OLLAMA_MODEL, OLLAMA_URL
+from amr_agent.ollama_agent import DEFAULT_OLLAMA_MODEL, KEEP_ALIVE, OLLAMA_URL, warm_up
 from amr_agent.rule_agent import LOW_BATTERY, RuleAgent
 
 INTENTS = ['deliver', 'goto', 'charge', 'status', 'inventory', 'cancel', 'unknown']
@@ -66,6 +66,8 @@ class LocalIntentAgent(RuleAgent):
         super().__init__(executor, on_event=on_event)
         self.model, self.url = model, url
         self.transport = transport or self._post
+        if transport is None:
+            warm_up(model, url)  # load onto the GPU in the background while the user types
 
     def _post(self, payload):
         import urllib.request
@@ -88,7 +90,7 @@ class LocalIntentAgent(RuleAgent):
             },
             'required': ['intent', 'items', 'unknown_items', 'destination'],
         }
-        payload = {'model': self.model, 'stream': False, 'format': schema,
+        payload = {'model': self.model, 'stream': False, 'format': schema, 'keep_alive': KEEP_ALIVE,
                    'options': {'temperature': 0, 'num_ctx': 4096},
                    'messages': [{'role': 'system', 'content': PROMPT.format(catalogue=catalogue, stations=', '.join(names))},
                                 {'role': 'user', 'content': text}]}

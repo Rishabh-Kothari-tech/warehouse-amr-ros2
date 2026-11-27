@@ -70,10 +70,10 @@ controller_server:
       stateful: true
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      desired_linear_vel: 0.2
+      desired_linear_vel: 0.45
       lookahead_dist: 0.45
       min_lookahead_dist: 0.25
-      max_lookahead_dist: 0.6
+      max_lookahead_dist: 0.9
       lookahead_time: 1.5
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.05
@@ -85,7 +85,7 @@ controller_server:
       regulated_linear_scaling_min_radius: 0.9
       regulated_linear_scaling_min_speed: 0.08
       use_rotate_to_heading: true
-      rotate_to_heading_angular_vel: 0.5
+      rotate_to_heading_angular_vel: 1.0
       max_angular_accel: 1.0
       transform_tolerance: 0.2
 behavior_server:
@@ -113,7 +113,7 @@ behavior_server:
     robot_base_frame: base_footprint
     transform_tolerance: 0.2
     simulate_ahead_time: 1.5
-    max_rotational_vel: 0.5
+    max_rotational_vel: 1.0
     min_rotational_vel: 0.15
     rotational_acc_lim: 1.0
 bt_navigator:
@@ -150,25 +150,25 @@ velocity_smoother:
     scale_velocities: false
     feedback: OPEN_LOOP
     max_velocity:
-    - 0.25
+    - 0.5
     - 0.0
-    - 0.6
+    - 1.0
     min_velocity:
-    - -0.15
+    - -0.25
     - 0.0
-    - -0.6
+    - -1.0
     deadband_velocity:
     - 0.0
     - 0.0
     - 0.0
     max_accel:
-    - 0.3
+    - 0.4
     - 0.0
-    - 0.8
+    - 1.0
     max_decel:
     - -0.4
     - 0.0
-    - -0.8
+    - -1.0
     odom_topic: /odom
     velocity_timeout: 1.0
 local_costmap:
@@ -274,6 +274,7 @@ collision_monitor:
     enable_stamped_cmd_vel: true
     polygons:
     - StopZone
+    - FootprintApproach
     StopZone:
       type: circle
       radius: 0.40
@@ -282,6 +283,18 @@ collision_monitor:
       enabled: true
       visualize: true
       polygon_pub_topic: stop_zone
+    FootprintApproach:
+      # Time-to-collision speed limit: project the footprint along the current velocity and cap speed so a
+      # collision is never closer than 1.2 s. Full speed in open aisles, normal docking at shelves (a fixed
+      # 0.8 m slowdown circle made the robot crawl at pick stations and trip the progress checker).
+      type: polygon
+      action_type: approach
+      footprint_topic: /local_costmap/published_footprint
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 6
+      enabled: true
+      visualize: false
     observation_sources:
     - scan
     scan:

@@ -125,6 +125,27 @@ refusal.
 | "bring me bolts and a BMS board" | rule | optimised 8.5 m vs 15.1 m one-at-a-time; delivered, 7.9 m in 97 s |
 | "the line is out of wiring harnesses and also needs a BMS board, bring both to packing" | local hybrid | optimised 9.8 m vs 20.0 m (51% shorter); delivered, 9.2 m in 93 s |
 | "go home" over `/agent/command` | rule | 3.2 m in 38 s |
+| "bring me bolts and a BMS board" (after speed tuning, below) | local hybrid | **8.1 m in 45 s; 47 s end to end** |
+
+### Speed tuning
+
+The first version drove at Nav2's conservative 0.2 m/s and the local model was unloaded by Ollama after 5 idle
+minutes (≈45 s to reload under WSL). Changes, all measured on the same request ("bring me bolts and a BMS board"):
+
+| | Before | After |
+|---|---|---|
+| Pure-pursuit cruise speed / smoother limit / spin speed | 0.2 m/s / 0.25 m/s / 0.5 rad/s | 0.45 m/s / 0.5 m/s / 1.0 rad/s |
+| Pick / drop dwell | 3 s | 1.5 s |
+| Model residency | unloaded after 5 min idle | `keep_alive` 60 min + background warm-up at start |
+| Agent time before the robot moves | ≈51 s cold, ≈5 s warm | ≈2–5 s |
+| Mission time | 97 s | **45 s** |
+
+Faster driving needs earlier braking (0.45 m/s at 0.4 m/s² takes ≈0.25 m). A fixed 0.8 m slowdown circle was tried
+first and made things worse: pick poses sit ≈0.45 m from the shelves, so the robot crawled at ≈2 cm/s near every
+station and tripped Nav2's progress checker (122 s mission, two aborts). It was replaced by the collision monitor's
+time-to-collision `approach` mode (footprint projected along the current velocity, 1.2 s horizon): full speed in open
+aisles, normal docking at shelves. Re-tested with an unmapped box in the path at the new speed: 0 aborts, closest
+approach ≈0.38 m from the front bumper.
 
 ## Running it
 

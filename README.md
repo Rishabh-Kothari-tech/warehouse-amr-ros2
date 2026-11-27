@@ -24,7 +24,7 @@ NavFn, Regulated Pure Pursuit, collision monitor) · RViz2 · Windows + WSL2 (Ub
 - SLAM map of the warehouse: `maps/warehouse_map_v3.{pgm,yaml}`
 - Nav2: shelf pick-face and home goals reached; an unmapped obstacle is detected and planned around
 - Order scheduler on real Nav2 path lengths: 26–44% less driving than serving orders one at a time
-- Natural-language delivery ("bring me bolts and a BMS board") executed end to end: 7.9 m, 97 s
+- Natural-language delivery ("bring me bolts and a BMS board") executed end to end: 8.1 m driven, 47 s total
 - Agent benchmark on **held-out** requests: on-device Qwen 2.5 3B hybrid agent **9/10, 0 unsafe actions**, vs
   keyword baseline 5/10 and the same model in a free-form tool loop 2/10
 
