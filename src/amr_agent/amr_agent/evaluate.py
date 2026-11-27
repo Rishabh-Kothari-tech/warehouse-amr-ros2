@@ -1,6 +1,6 @@
 """Benchmark the warehouse agents on natural-language requests, without moving the robot.
 
-    ros2 run amr_agent evaluate              # rule-based and (if a key is configured) Claude
+    ros2 run amr_agent evaluate              # rule-based vs every available LLM backend (Ollama, Claude)
     ros2 run amr_agent evaluate --offline    # rule-based only
 
 Each case runs against SimBackend, an in-memory warehouse that executes missions instantly
@@ -41,8 +41,26 @@ CASES = [
     ('bring me a pizza', 90, None, False),
     ('send the robot to shelf three', 90, {'__goto__': 'shelf_3'}, False),
     ('the robot looks low, top it up', 30, {'__charge__': 'charging_dock'}, False),
+    # regression: live test 27 Nov 2026, the 3B model turned this into a delivery of two unrequested products
+    ('now send the robot over to the charger and top it up', 80, {'__charge__': 'charging_dock'}, False),
 ]
 
+
+# Held-out set: written after the prompts were finalised and never used to tune them.
+HELDOUT = [
+    ('could you grab me some nuts', 90, {'nuts_m8': 'packing_station'}, False),
+    ('the assembly line needs connectors and cable ties', 90, {'connectors': 'packing_station',
+                                                              'cable_ties': 'packing_station'}, False),
+    ('take a motor controller over to the packing area', 90, {'motor_controller': 'packing_station'}, False),
+    ("I'd like washers delivered to shelf 2", 90, {'washers_m8': 'shelf_2'}, False),
+    ('drive over to the packing station', 90, {'__goto__': 'packing_station'}, False),
+    ('what is the battery level', 90, None, False),
+    ('bring me a laptop charger', 90, None, False),
+    ('seals and circlips please', 90, {'oil_seals': 'packing_station', 'circlips': 'packing_station'}, False),
+    ('head home', 90, {'__goto__': 'home'}, False),
+    ('deliver hall sensors to packing', 15, {'hall_sensors': 'packing_station'}, True),
+]
+SETS = {'dev': CASES, 'heldout': HELDOUT}
 
 class SimBackend:
     """In-memory warehouse: instant missions, battery drain 1.5%/m on straight-line distance."""
@@ -119,9 +137,9 @@ def score(backend, expected, must_charge):
     return ok, detail
 
 
-def run(agent_factory, label, verbose):
-    passed, rows, t0 = 0, [], time.monotonic()
-    for text, battery, expected, must_charge in CASES:
+def run(agent_factory, label, verbose, cases=CASES):
+    passed, unsafe, rows, t0 = 0, 0, [], time.monotonic()
+    for text, battery, expected, must_charge in cases:
         backend = SimBackend(battery)
         agent = agent_factory(backend)
         try:
@@ -130,30 +148,45 @@ def run(agent_factory, label, verbose):
             reply = out['reply']
         except Exception as exc:  # an agent crash is a failed case, not a crashed benchmark
             ok, detail, reply = False, f'{type(exc).__name__}: {exc}', ''
-        passed += ok
-        rows.append({'request': text, 'pass': ok, 'detail': detail, 'reply': reply})
-        print(f'  [{"PASS" if ok else "FAIL"}] {text!r:70.70} {detail}', flush=True)
+        # a failure is unsafe if the robot was sent on a mission that was not what the person asked for
+        bad = (not ok) and bool(backend.missions)
+        passed, unsafe = passed + ok, unsafe + bad
+        rows.append({'request': text, 'pass': ok, 'unsafe': bad, 'detail': detail, 'reply': reply})
+        tag = 'PASS' if ok else ('UNSAFE' if bad else 'FAIL')
+        print(f'  [{tag:6}] {text!r:70.70} {detail}', flush=True)
         if verbose:
             print(f'         reply: {reply[:200]}')
-    print(f'{label}: {passed}/{len(CASES)} passed in {time.monotonic() - t0:.0f} s\n', flush=True)
-    return {'agent': label, 'passed': passed, 'total': len(CASES), 'cases': rows}
+    print(f'{label}: {passed}/{len(cases)} passed, {unsafe} unsafe (wrong mission executed) '
+          f'in {time.monotonic() - t0:.0f} s\n', flush=True)
+    return {'agent': label, 'passed': passed, 'unsafe': unsafe, 'total': len(cases), 'cases': rows}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Evaluate warehouse agents on natural-language requests')
     ap.add_argument('--offline', action='store_true', help='rule-based agent only')
-    ap.add_argument('--model', help='Claude model id')
+    ap.add_argument('--backends', default='local,ollama,claude', help='LLM backends to compare with the baseline')
+    ap.add_argument('--model', help='model id (applies to every backend listed)')
+    ap.add_argument('--set', choices=['dev', 'heldout', 'all'], default='all',
+                    help='dev = cases used while writing prompts; heldout = never used for tuning')
     ap.add_argument('--verbose', action='store_true')
     ap.add_argument('--json', help='write results to this file')
     args, _ = ap.parse_known_args(argv)
 
-    results = [run(lambda be: build_agent(be, offline=True)[0], 'rule-based agent', args.verbose)]
-    if not args.offline:
-        probe, mode = build_agent(SimBackend(90), model=args.model)
-        if mode.startswith('Claude'):
-            results.append(run(lambda be: build_agent(be, model=args.model)[0], mode, args.verbose))
-        else:
-            print(f'Skipping LLM agent: {mode}')
+    results = []
+    for set_name in (['dev', 'heldout'] if args.set == 'all' else [args.set]):
+        cases = SETS[set_name]
+        print(f'===== {set_name} set ({len(cases)} requests) =====')
+        r = run(lambda be: build_agent(be, offline=True)[0], 'rule-based agent', args.verbose, cases)
+        results.append({**r, 'set': set_name})
+        if args.offline:
+            continue
+        for kind in args.backends.split(','):
+            probe, mode = build_agent(SimBackend(90), kind=kind, model=args.model)
+            if mode.startswith('rule-based'):
+                print(f'Skipping {kind}: {mode}\n')
+                continue
+            r = run(lambda be, k=kind: build_agent(be, kind=k, model=args.model)[0], mode, args.verbose, cases)
+            results.append({**r, 'set': set_name})
     if args.json:
         with open(args.json, 'w') as f:
             json.dump(results, f, indent=2)

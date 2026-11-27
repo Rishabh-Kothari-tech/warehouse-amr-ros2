@@ -3,6 +3,7 @@
     ros2 run amr_agent chat                         # interactive
     ros2 run amr_agent chat --once "bring me bolts and a BMS board"
     ros2 run amr_agent chat --offline               # rule-based, no LLM
+    ros2 run amr_agent chat --backend local         # local open model (hybrid intent agent)
 
 Ctrl+C while a mission runs cancels the mission; Ctrl+C at the prompt exits.
 """
@@ -22,7 +23,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='Natural-language interface to the warehouse AMR')
     ap.add_argument('--once', action='append', help='run this request and exit (repeatable)')
     ap.add_argument('--offline', action='store_true', help='use the rule-based agent, no LLM')
-    ap.add_argument('--model', help='Claude model id (default: $AMR_AGENT_MODEL or claude-sonnet-5-5)')
+    ap.add_argument('--backend', choices=['auto', 'claude', 'local', 'ollama', 'rule'],
+                    help='agent backend (default: $AMR_AGENT_BACKEND or auto)')
+    ap.add_argument('--model', help='model id for the chosen backend')
     ap.add_argument('--quiet', action='store_true', help='hide tool calls')
     args, _ = ap.parse_known_args(argv)
 
@@ -33,6 +36,10 @@ def main(argv=None):
             return
         if e['type'] == 'tool_call':
             print(f'  -> {e["name"]}({_short(e["input"], 140)})', flush=True)
+        elif e['type'] == 'intent':
+            print(f'  intent: {json.dumps(e["intent"])}', flush=True)
+        elif e['type'] == 'verifier':
+            print(f'  verifier: rejected ungrounded items {e["rejected"]}, asking the model again', flush=True)
         elif e['type'] == 'tool_result':
             print(f'  <- {_short(e["output"])}', flush=True)
 
@@ -43,7 +50,7 @@ def main(argv=None):
 
     backend = WarehouseClient()
     agent, mode = build_agent(backend, on_event=on_event, on_feedback=on_feedback, offline=args.offline,
-                              model=args.model)
+                              model=args.model, kind=args.backend)
     log = DecisionLog()
     print(f'Warehouse AMR agent - {mode}. Decision log: {log.path}', flush=True)
 

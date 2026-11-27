@@ -1,8 +1,8 @@
 # Autonomous Warehouse AMR — ROS 2 Jazzy + Webots + LLM agent
 
 A differential-drive warehouse robot simulated in Webots, with SLAM mapping, AMCL localization, Nav2 autonomous
-navigation, and an **agentic layer**: a Claude tool-calling agent that turns plain-English requests
-("bring me bolts and a BMS board") into validated, distance-optimised missions. Built as part of the IIT Gandhinagar PG Diploma (AI-ML & Agentic AI Engineering) Forward Deployed
+navigation, and an **agentic layer** that turns plain-English requests ("bring me bolts and a BMS board") into
+validated, distance-optimised missions, running fully on-device with a free 3B open model (or with Claude). Built as part of the IIT Gandhinagar PG Diploma (AI-ML & Agentic AI Engineering) Forward Deployed
 Engineering track.
 
 ## Stack
@@ -17,7 +17,7 @@ NavFn, Regulated Pure Pursuit, collision monitor) · RViz2 · Windows + WSL2 (Ub
 | `amr_bringup` | Status and velocity helper nodes |
 | `amr_interfaces` | Mission/station/order messages, services and the `ExecuteMission` action |
 | `amr_tasks` | `warehouse_manager`: stations + inventory, mission executor on Nav2, battery/cargo sim, order scheduler |
-| `amr_agent` | Claude tool-use agent, rule-based fallback, chat CLI, ROS topic node, evaluation benchmark |
+| `amr_agent` | Agents (local hybrid intent agent + verifier, Claude tool loop, rule-based), chat CLI, ROS topic node, evaluation benchmark |
 
 ## Results
 - Wheel odometry calibrated: drift after a 30 m mapping loop is 3 cm / 0.8°
@@ -25,7 +25,8 @@ NavFn, Regulated Pure Pursuit, collision monitor) · RViz2 · Windows + WSL2 (Ub
 - Nav2: shelf pick-face and home goals reached; an unmapped obstacle is detected and planned around
 - Order scheduler on real Nav2 path lengths: 26–44% less driving than serving orders one at a time
 - Natural-language delivery ("bring me bolts and a BMS board") executed end to end: 7.9 m, 97 s
-- Agent benchmark (`ros2 run amr_agent evaluate`): 10 requests scored automatically; keyword baseline 5/10
+- Agent benchmark on **held-out** requests: on-device Qwen 2.5 3B hybrid agent **9/10, 0 unsafe actions**, vs
+  keyword baseline 5/10 and the same model in a free-form tool loop 2/10
 
 See [`docs/agentic_layer.md`](docs/agentic_layer.md) for the architecture, safety layers and evaluation.
 
@@ -51,8 +52,9 @@ ros2 launch amr_simulation amr_navigation.launch.py
 ros2 launch amr_tasks warehouse_tasks.launch.py   # terminal C
 ros2 run amr_agent chat                           # terminal D: "bring me bolts and a BMS board"
 ```
-The LLM agent reads `ANTHROPIC_API_KEY` from the environment or `~/.config/amr_agent/env` and needs
-`pip install anthropic`; without a key it falls back to the rule-based agent.
+Agent backends: a free local model via [Ollama](https://ollama.com) (`ollama pull qwen2.5:3b`), or Claude with
+`ANTHROPIC_API_KEY` in `~/.config/amr_agent/env`; with neither, a rule-based fallback. Setup details in
+[`docs/agentic_layer.md`](docs/agentic_layer.md).
 On WSL, stopping a launch can leave the Windows Webots process running; close it before relaunching
 (`stop_sim.sh` does this), otherwise the next launch connects to the stale instance.
 

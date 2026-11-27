@@ -24,12 +24,14 @@ class AgentNode(Node):
         super().__init__('amr_agent')
         self.declare_parameter('offline', False)
         self.declare_parameter('model', '')
+        self.declare_parameter('backend', 'auto')
         self.resp_pub = self.create_publisher(String, '/agent/response', 10)
         self.event_pub = self.create_publisher(String, '/agent/events', 50)
         self.backend = WarehouseClient('amr_agent_backend')
         self.agent, self.mode = build_agent(
             self.backend, on_event=self._event, on_feedback=lambda f: self._event({'type': 'feedback', **f}),
-            offline=self.get_parameter('offline').value, model=self.get_parameter('model').value or None)
+            offline=self.get_parameter('offline').value, model=self.get_parameter('model').value or None,
+            kind=self.get_parameter('backend').value)
         self.log = DecisionLog()
         self.queue: 'queue.Queue[str]' = queue.Queue()
         self.create_subscription(String, '/agent/command', lambda m: self.queue.put(m.data), 10)
